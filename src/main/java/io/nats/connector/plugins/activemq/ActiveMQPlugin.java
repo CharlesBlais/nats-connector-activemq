@@ -237,7 +237,6 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
          * object is self referenced.
          * 
          * @throws JMSException 
-         * @throws CapSftpException 
          */
         private void connect() throws JMSException
         {		

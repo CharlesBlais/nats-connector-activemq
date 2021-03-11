@@ -14,6 +14,20 @@ The code has been inspired by the example plugin for redis.  Documentation can b
 
 The code has been inspired by the example plugin for redis.  Documentation can be found [here](http://nats-io.github.io/nats-connector-redis).  Some additional details follow.
 
+A simplified way to build/install from source is simply to execute maven with assembly.
+
+```bash
+mvn clean compile assembly:single
+```
+
+And to run it, simply call the build jar with all dependencies
+
+```bash
+java -jar target/nats-connector-activemq-1.0-SNAPSHOT-jar-with-dependencies.jar -configURL file://`pwd`/config.json
+```
+
+Where config.json is your custom configuration file.
+
 ### Package name
 
 The package structure is similar to redis but replace "redis" with "activemq".
@@ -58,33 +72,3 @@ The ActiveMQ plugin configuration file read at the URI must have the following f
 * topic is the ActiveMQ topic (can be wildcard)
 
 The program will copy the exact topic and forward it to NATS.
-
-## Running the NATS ActiveMQ connector
-
-There are two ways to launch the NATS ActiveMQ connector - invoking the connector as an application or programatically from your own application.
-
-To invoke the connector from the command line:
-
-```bash
-java -classpath <your classpath> io.nats.connector.activemq.ActiveMQConnector <args>
-```
-
-The arguments are optional:
-
-```bash
-    -configURL <URL of the ActiveMQ Connector Configuration>
-    -debug
-```
-
-To invoke the connector from an application:
-
-```java
-System.setProperty(Connector.PLUGIN_CLASS, "com.io.nats.connector.plugins.activemq.ActiveMQPlugin");
-new Connector().run();
-```
-
-or finally, use the framework itself to run the activemq connector:
-
-```bash
-java -Dio.nats.connector.plugin=com.io.nats.connector.plugins.activemq.ActiveMQPlugin io.nats.connector.Connector
-```

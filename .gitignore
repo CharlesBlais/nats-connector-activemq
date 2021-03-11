@@ -1,0 +1,18 @@
+# Eclipse
+.checkstyle
+.classpath
+.project
+.settings/
+
+# Build artifacts
+*.class
+target/
+bin/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Testing files
+config.json

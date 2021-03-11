@@ -30,12 +30,9 @@ public class ActiveMQConnector {
         if (args.length == 0)
             return;
 
-        if(args.length < 2) {
-            ActiveMQConnector.usage();
-        }
-
         for (int i = 0; i < args.length; i++)
         {
+            System.out.printf(args[i]);
             if("-configURL".equalsIgnoreCase(args[i]))
             {
                 i++;

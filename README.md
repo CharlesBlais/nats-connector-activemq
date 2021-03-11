@@ -83,7 +83,7 @@ System.setProperty(Connector.PLUGIN_CLASS, "com.io.nats.connector.plugins.active
 new Connector().run();
 ```
 
-or finally, use the framework itself to run the redis connector:
+or finally, use the framework itself to run the activemq connector:
 
 ```bash
 java -Dio.nats.connector.plugin=com.io.nats.connector.plugins.activemq.ActiveMQPlugin io.nats.connector.Connector

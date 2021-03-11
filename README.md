@@ -28,6 +28,15 @@ java -jar target/nats-connector-activemq-1.0-SNAPSHOT-jar-with-dependencies.jar 
 
 Where config.json is your custom configuration file.
 
+Important note, the testing requires a local NATS and ActiveMQ server for testing.  With docker, this can be easily achieved by running the following two containers:
+
+```bash
+# Run a test activemq broker
+docker run -p 61616:61616 -p 8161:8161 -d --name activemq-test rmohr/activemq
+# Run a test nats broker
+docker run -p 4222:4222 -p 6222:6222 -p 8222:8222 -d --name nats-main nats
+```
+
 ### Package name
 
 The package structure is similar to redis but replace "redis" with "activemq".

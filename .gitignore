@@ -16,3 +16,4 @@ bin/
 
 # Testing files
 config.json
+application.properties

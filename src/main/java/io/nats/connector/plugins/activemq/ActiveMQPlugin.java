@@ -84,17 +84,18 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     NATSConnector connector = null;
     Logger logger = null;
 
-    boolean trace = false;
+    String configUrl = null;
 
+    ActiveMQListener listener = null;
+
+    /**
+     * Configuration parameters of the plugin
+     */
     String uri = DEFAULT_ACTIVEMQ_URI;
     String username = DEFAULT_ACTIVEMQ_USERNAME;
     String password = DEFAULT_ACTIVEMQ_PASSWORD;
     int timeout = DEFAULT_ACTIVEMQ_TIMEOUT;
     String topic = DEFAULT_ACTIVEMQ_TOPIC;
-
-    String configUrl = null;
-
-    ActiveMQListener listener = null;
 
     String defaultConfiguration =
         "{" +
@@ -105,7 +106,7 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             "\"topic\" : \"" + DEFAULT_ACTIVEMQ_TOPIC + "\"" +
         "}";
 
-
+    
     /**
      * Get the configuration URL from the properties (if set)
      */
@@ -202,15 +203,13 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
          */
         public void run()
         {
-            javax.jms.Message message;
-
             try {
                 this.connect();
                 while (!Thread.currentThread().isInterrupted()) {
-                    // Wait for a message
-				    message = this.consumer.receive(timeout);
+                    // Wait for a message until timeout is reached
+				    javax.jms.Message message = this.consumer.receive(timeout);
                     if (message == null) {
-                        logger.debug("Timeout reached");
+                        logger.debug("ActiveMQ receive timeout ({}) reached", timeout);
                     } else if (message instanceof TextMessage) {
                         TextMessage textMessage = (TextMessage) message;
                         String amqTopic = textMessage.getJMSDestination().toString();
@@ -225,7 +224,7 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
                     }
                 }
             } catch (JMSException e) {
-                logger.error("Problem with ActiveMQ broker", e);
+                logger.error("Problem with ActiveMQ broker: {}", e);
 			    Thread.currentThread().interrupt();
             }
             logger.info("ActiveMQ listener thread finished");
@@ -245,7 +244,7 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             
             javax.jms.Connection connection;
             if( username != "" && password != "") {
-                logger.info("Connecting with username {} (password hidden) ", username);
+                logger.info("Connecting with username '{}' (password hidden)", username);
                 connection = connectionFactory.createConnection(username, password);
             } else {
                 logger.info("Connecting with no credentials");
@@ -254,14 +253,14 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             ((ActiveMQConnection) connection).addTransportListener(this);
             connection.setExceptionListener(this);
 
-            logger.info("Start connection");
+            logger.debug("Start connection");
 		    connection.start();
 
             // Create a Session
             Session session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
             
             // Connect to topic
-            logger.info("Subscribe to topic {}", topic);
+            logger.info("Subscribing to topic '{}'", topic);
             Destination destination = session.createTopic(topic);
             
             this.consumer = session.createConsumer(destination);
@@ -269,13 +268,13 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
 
         @Override
         public synchronized void onException(JMSException err) {
-            logger.error("JMS Exception", err);
+            logger.error("JMS Exception: {}", err);
             Thread.currentThread().interrupt();
         }
         
         @Override
         public synchronized void onException(IOException err) {
-            logger.warn("IOException received", err);
+            logger.warn("IOException received: {}", err);
         }
     
         @Override
@@ -342,7 +341,7 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             initActiveMQ();
         }
         catch (Exception e) {
-            logger.error("Unable to initialize", e);
+            logger.error("Unable to initialize: {}", e);
             teardownActiveMQ();
             return false;
         }
@@ -408,25 +407,25 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
         switch (event)
         {
             case ASYNC_ERROR:
-                logger.error("NATS Asynchronous error: " + message);
+                logger.error("NATS Asynchronous error: {}", message);
                 break;
             case RECONNECTED:
-                logger.info("Reconnected to the NATS cluster: " + message);
+                logger.info("Reconnected to the NATS cluster: {}", message);
                 // At this point, we may not have to do much.  Buffered NATS messages
                 // may be flushed. and we'll buffer and flush the Redis messages.
                 // Revisit this later if we need more buffering.
                 break;
             case DISCONNECTED:
-                logger.info("Disconnected from the NATS cluster: " + message);
+                logger.info("Disconnected from the NATS cluster: {}", message);
                 break;
             case CLOSED:
-                logger.debug("NATS Event Connection Closed: " + message);
+                logger.debug("NATS Event Connection Closed: {}", message);
                 // shudown - if this is a result of shutdown elsewhere,
                 // there will be no effect.
                 connector.shutdown();
                 break;
             default:
-                logger.warn("Unknown NATS Event: " + message);
+                logger.warn("Unknown NATS Event: {}", message);
         }
     }
 

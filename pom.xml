@@ -47,12 +47,6 @@
       <version>${slf4j-version}</version>
     </dependency>
     <dependency>
-      <groupId>org.json</groupId>
-      <artifactId>json</artifactId>
-      <version>${json-version}</version>
-      <scope>compile</scope>
-    </dependency>
-    <dependency>
 	    <groupId>org.apache.activemq</groupId>
 	    <artifactId>activemq-client</artifactId>
 	    <version>5.16.0</version>

@@ -9,8 +9,8 @@ import io.nats.client.Message;
 import io.nats.connector.plugin.NATSConnector;
 import io.nats.connector.plugin.NATSConnectorPlugin;
 import io.nats.connector.plugin.NATSEvent;
-import io.nats.connector.plugin.NATSUtilities;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
 import java.util.concurrent.ExecutorService;
@@ -27,64 +27,64 @@ import org.apache.activemq.ActiveMQConnection;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.transport.TransportListener;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 import org.slf4j.Logger;
 
 /**
  * A ActiveMQ consumer only plugin.
  * 
- * It reads a configuration file from a provided url to direct
- * the connector to bridge NATS and ActiveMQ.
+ * Properties are defined in system with following:
  * 
- * The file is JSON formatted with the following structure:
+ *  io.nats.connector.plugins.activemq.uri
  * 
- * {
- *   "uri": "failover:(tcp://localhost:61616)",
- *   "username": "",
- *   "password": "",
- *   "timeout": 2000,
- *   "topic": ">"
- * }
+ *  io.nats.connector.plugins.activemq.username
+ *  
+ *  io.nats.connector.plugins.activemq.password
+ * 
+ *  io.nats.connector.plugins.activemq.timeout
+ * 
+ *  io.nats.connector.plugins.activemq.topic
  * 
  */
 public class ActiveMQPlugin implements NATSConnectorPlugin
 {
     /**
-     * The property location to specify a configuration URL.
+     * Configuration file property
      */
-    static public final String CONFIG_URL = "nats.io.connector.plugins.activemq.configurl";
+    static public final String PROPERTY_FILE = "io.nats.connector.plugins.activemq.properties";
 
     /**
      * Default activemq host with JMS port
      */
     static public final String DEFAULT_ACTIVEMQ_URI = "failover:(tcp://localhost:61616)";
+    static public final String PROPERTY_ACTIVEMQ_URI = "io.nats.connector.plugins.activemq.uri";
 
     /**
      * Default activemq username
      */
     static public final String DEFAULT_ACTIVEMQ_USERNAME = "";
+    static public final String PROPERTY_ACTIVEMQ_USERNAME = "io.nats.connector.plugins.activemq.username";
 
     /**
      * Default activemq passowrd
      */
     static public final String DEFAULT_ACTIVEMQ_PASSWORD = "";
+    static public final String PROPERTY_ACTIVEMQ_PASSWORD = "io.nats.connector.plugins.activemq.password";
 
     /**
      * Default activemq timeout
      */
     static public final int DEFAULT_ACTIVEMQ_TIMEOUT = 2000;
+    static public final String PROPERTY_ACTIVEMQ_TIMEOUT = "io.nats.connector.plugins.activemq.timeout";
 
     /**
      * Default activemq topic
      */
     static public final String DEFAULT_ACTIVEMQ_TOPIC = ">";
+    static public final String PROPERTY_ACTIVEMQ_TOPIC = "io.nats.connector.plugins.activemq.topic";
 
 
     NATSConnector connector = null;
     Logger logger = null;
-
-    String configUrl = null;
 
     ActiveMQListener listener = null;
 
@@ -97,65 +97,40 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     int timeout = DEFAULT_ACTIVEMQ_TIMEOUT;
     String topic = DEFAULT_ACTIVEMQ_TOPIC;
 
-    String defaultConfiguration =
-        "{" +
-            "\"uri\" : \"" + DEFAULT_ACTIVEMQ_URI + "\"," +
-            "\"username\" : \"" + DEFAULT_ACTIVEMQ_USERNAME + "\"," +
-            "\"password\" : \"" + DEFAULT_ACTIVEMQ_PASSWORD + "\"," +
-            "\"timeout\" : \"" + DEFAULT_ACTIVEMQ_TIMEOUT + "\"," +
-            "\"topic\" : \"" + DEFAULT_ACTIVEMQ_TOPIC + "\"" +
-        "}";
-
-    
     /**
      * Get the configuration URL from the properties (if set)
      */
-    private void loadProperties()
+    private void loadProperties() throws Exception
     {
-        Properties p = System.getProperties();
-        configUrl = p.getProperty(CONFIG_URL);
-    }
+        Properties p = new Properties(System.getProperties());
+        String configFile = p.getProperty(PROPERTY_FILE);
 
+        if (configFile == null)
+            return;
 
-    /**
-     * Gets the default configuration.
-     * @return default configuration as a JSON string.
-     */
-    String getDefaultConfiguration()
-    {
-        return defaultConfiguration;
-    }
-
-
-     /**
-     * Parse content of string JSON configuration file
-     *
-     * @param jsonConfig - json configuration in a string.
-     * @throws Exception - an error occurred parsing the configuration.
-     */
-    public void parseConfiguration(String jsonConfig) throws Exception
-    {
-        JSONObject rootConfig = new JSONObject(new JSONTokener(jsonConfig));
-
-        uri = rootConfig.optString("uri", DEFAULT_ACTIVEMQ_URI);
-        username = rootConfig.optString("username", DEFAULT_ACTIVEMQ_USERNAME);
-        password = rootConfig.optString("password", DEFAULT_ACTIVEMQ_PASSWORD);
-        timeout = rootConfig.optInt("timeout", DEFAULT_ACTIVEMQ_TIMEOUT);
-        topic = rootConfig.optString("topic", DEFAULT_ACTIVEMQ_TOPIC);
-    }
-
-
-    /**
-     * Load configuration from default and overwrite in URL (for cloud)
-     * is used.
-     */
-    private void loadConfig() throws Exception
-    {
-        String configStr = getDefaultConfiguration();
-        if (configUrl != null) {
-            configStr = NATSUtilities.readFromUrl(configUrl);
+        logger.debug("Loading properties from '" + configFile + '"');
+        FileInputStream in = new FileInputStream(configFile);
+        try {
+            p.load(in);
         }
-        parseConfiguration(configStr);
+        catch (Exception e) {
+            logger.error("Unable to load properties.", e);
+            throw e;
+        }
+        finally {
+            in.close();
+        }
+
+        uri = p.getProperty(
+            PROPERTY_ACTIVEMQ_URI, DEFAULT_ACTIVEMQ_URI);
+        username = p.getProperty(
+            PROPERTY_ACTIVEMQ_USERNAME, DEFAULT_ACTIVEMQ_USERNAME);
+        password = p.getProperty(
+            PROPERTY_ACTIVEMQ_PASSWORD, DEFAULT_ACTIVEMQ_PASSWORD);
+        timeout = Integer.parseInt(p.getProperty(
+            PROPERTY_ACTIVEMQ_TIMEOUT, String.valueOf(DEFAULT_ACTIVEMQ_TIMEOUT)));
+        topic = p.getProperty(
+            PROPERTY_ACTIVEMQ_TOPIC, DEFAULT_ACTIVEMQ_TOPIC);
     }
 
 
@@ -165,7 +140,6 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     private class ActiveMQListener implements Runnable, ExceptionListener, TransportListener
     {
         private MessageConsumer consumer;
-
 
         /**
          * Send a message NATS.  Note the following assumes that the connector to the
@@ -337,7 +311,6 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
 
         try {
             loadProperties();
-            loadConfig();
             initActiveMQ();
         }
         catch (Exception e) {
@@ -363,9 +336,8 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     public boolean onNatsInitialized(NATSConnector connector)
     {
         this.connector = connector;
-
         ExecutorService executor = Executors.newSingleThreadExecutor();
-        executor.execute(new ActiveMQListener());
+        executor.execute(listener);
         return true;
     }
 
@@ -400,10 +372,6 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
         // When a connection has been disconnected unexpectedly, NATS will
         // try to reconnect.  Messages published during the reconnect will
         // be buffered and resent, so there may be no need to do anything.
-        // Connection disconnected - close JEDIS, buffer messages?
-        // Reconnected - reconnect to JEDIS.
-        // Closed:  should handle elsewhere.
-        // Async error.  Notify, let admins handle these.
         switch (event)
         {
             case ASYNC_ERROR:
@@ -428,5 +396,4 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
                 logger.warn("Unknown NATS Event: {}", message);
         }
     }
-
 }

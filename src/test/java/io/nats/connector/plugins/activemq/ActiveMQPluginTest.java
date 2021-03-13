@@ -250,8 +250,6 @@ public class ActiveMQPluginTest
     @Test
     public void testActiveMQToNats() throws Exception {
 
-        System.clearProperty(ActiveMQPlugin.CONFIG_URL);
-
         Connector c = new Connector();
 
         ExecutorService executor = Executors.newFixedThreadPool(6);

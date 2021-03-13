@@ -14,6 +14,5 @@ bin/
 *.war
 *.ear
 
-# Testing files
-config.json
+# Properties file
 application.properties

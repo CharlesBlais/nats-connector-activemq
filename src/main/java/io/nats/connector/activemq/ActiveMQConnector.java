@@ -22,7 +22,7 @@ public class ActiveMQConnector {
      */
     static private void usage()
     {
-        System.out.printf("java {} -config <properties file>\n", Connector.class.toString());
+        System.out.printf("java {} -config <properties file>\n", ActiveMQPlugin.class.toString());
         System.exit(-1);
     }
 

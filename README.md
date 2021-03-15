@@ -71,7 +71,7 @@ or in code:
 System.setProperty(ActiveMQPlugin.PROPERTY_FILE, "application.properties");
 ```
 
-The following is an example configuration file:
+The following is an example configuration file, all are optional.  The values shown below are the defaults used by the plugin.
 
 ```properties
 # NATS Client Properties
@@ -85,9 +85,9 @@ io.nats.client.servers=nats://localhost:4222
 
 # ActiveMQ Client Properties
 # -------------------------- 
-io.nats.connector.plugins.activemq.uri=failover:(tcp://eew-cn-int1.seismo.nrcan.gc.ca:61616)
-io.nats.connector.plugins.activemq.username=username
-io.nats.connector.plugins.activemq.password=password
+io.nats.connector.plugins.activemq.uri=failover:(tcp://localhost:61616)
+io.nats.connector.plugins.activemq.username=
+io.nats.connector.plugins.activemq.password=
 io.nats.connector.plugins.activemq.timeout=2000
 io.nats.connector.plugins.activemq.topic=>
 #io.nats.connector.plugins.activemq.nats.topic.pre=

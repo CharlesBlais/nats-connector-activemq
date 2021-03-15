@@ -10,7 +10,7 @@ See [The NATS Connector Framework](https://github.com/nats-io/nats-connector-fra
 
 The code has been inspired by the example plugin for redis.  Documentation can be found [here](http://nats-io.github.io/nats-connector-redis).
 
-The plugin will copy the exact ActiveMQ topic and forward it to NATS.
+The plugin will copy the exact ActiveMQ topic to NATS subject.  Optional configuration can be defined to set pre and post subject text.
 
 ## Installation
 
@@ -28,7 +28,7 @@ To run it, simply call the build jar with all dependencies
 java -jar target/nats-connector-activemq-1.0-SNAPSHOT-jar-with-dependencies.jar -config application.properties
 ```
 
-where -config is an optional properties file as described below.
+where -config is an optional properties file as described below.  The "-config" is the same configuration file defined in the jnats NATSConnector so it must not change.
 
 Important note, the testing requires a local NATS and ActiveMQ server for testing.  With docker, this can be easily achieved by running the following two containers:
 
@@ -37,6 +37,14 @@ Important note, the testing requires a local NATS and ActiveMQ server for testin
 docker run -p 61616:61616 -p 8161:8161 -d --name activemq-test rmohr/activemq
 # Run a test nats broker
 docker run -p 4222:4222 -p 6222:6222 -p 8222:8222 -d --name nats-main nats
+```
+
+Testing can be disabled by simply editing the pom.xml file of this project.
+
+```xml
+<!-- maven testing conditions skip -->
+<maven.test.skip>true</maven.test.skip>
+<maven.test.failure.ignore>false</maven.test.failure.ignore>
 ```
 
 ### Package name
@@ -51,27 +59,39 @@ io.nats.connector.plugins.activemq
 
 NATS configuration is set through the jnats client library properties and can be passed into the jvm, or specified in a configuration file. The properties are described [here](https://javadoc.io/doc/io.nats/jnats/2.1.2/io/nats/client/Options.html).
 
-The NATS ActiveMQ connector is configured by specifying a url that returns JSON file as a system property.  In this example,
-the url specifies a local file.  It can be any location that meets the URI standard.
+The "-config" flag, as described earlier, should be used if "io.nats.client" are defined.  Otherwise, the configuration can also be passed using the property with the file path.
 
 ```bash
--Dnats.io.connector.plugins.activemq.properties="application.properties"
+-Dio.nats.connector.plugins.activemq.properties="application.properties"
 ```
 
-in code:
+or in code:
 
 ```java
 System.setProperty(ActiveMQPlugin.PROPERTY_FILE, "application.properties");
 ```
 
-The ActiveMQ plugin configuration file read at the URI must have the following format:
+The following is an example configuration file:
 
 ```properties
+# NATS Client Properties
+# ----------------------
+# For a complete list of properties accepted by io.nats.connector.Connector
+# see online documentation at:
+#
+#   https://javadoc.io/doc/io.nats/jnats/2.1.2/io/nats/client/Options.html
+#
+io.nats.client.servers=nats://localhost:4222
+
+# ActiveMQ Client Properties
+# -------------------------- 
 io.nats.connector.plugins.activemq.uri=failover:(tcp://eew-cn-int1.seismo.nrcan.gc.ca:61616)
 io.nats.connector.plugins.activemq.username=username
 io.nats.connector.plugins.activemq.password=password
 io.nats.connector.plugins.activemq.timeout=2000
 io.nats.connector.plugins.activemq.topic=>
+#io.nats.connector.plugins.activemq.nats.topic.pre=
+#io.nats.connector.plugins.activemq.nats.topic.post=
 ```
 
 * uri is the ActiveMQ connection URI
@@ -79,11 +99,29 @@ io.nats.connector.plugins.activemq.topic=>
 * password is the account password
 * timeout is the ActiveMQ message listen timeout
 * topic is the ActiveMQ topic (can be wildcard)
+* nats.topic.pre is pre-subject string added to the topic
+* nats.topic.post is pre-subject string added to the topic
 
 Additional properties can be added for the NATS Client.  These are defined under [here](https://javadoc.io/doc/io.nats/jnats/2.1.2/io/nats/client/Options.html).  For example, the define a NATS cluster:
 
 ```properties
 io.nats.client.servers=nats://localhost:4222
+```
+
+All properties can also contain String substitution patterns as defined by apache common-text.
+
+[http://commons.apache.org/proper/commons-text/apidocs/org/apache/commons/text/StringSubstitutor.html]
+
+For example, the localhost name can be used as post NATS topic element as:
+
+```properties
+io.nats.connector.plugins.activemq.nats.topic.post=${localhost:canonical-name}
+```
+
+or
+
+```properties
+io.nats.connector.plugins.activemq.nats.topic.post=${env:HOSTNAME}
 ```
 
 ## Logging

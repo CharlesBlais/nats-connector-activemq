@@ -13,6 +13,7 @@ import io.nats.connector.plugin.NATSEvent;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,6 +28,7 @@ import org.apache.activemq.ActiveMQConnection;
 
 import org.apache.activemq.ActiveMQConnectionFactory;
 import org.apache.activemq.transport.TransportListener;
+import org.apache.commons.text.StringSubstitutor;
 import org.slf4j.Logger;
 
 /**
@@ -50,7 +52,8 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     /**
      * Configuration file property
      */
-    static public final String PROPERTY_FILE = "io.nats.connector.plugins.activemq.properties";
+    static public final String PROPERTY_DOMAIN = "io.nats.connector.plugins.activemq";
+    static public final String PROPERTY_FILE = PROPERTY_DOMAIN + ".properties";
 
     /**
      * Default activemq host with JMS port
@@ -82,6 +85,14 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     static public final String DEFAULT_ACTIVEMQ_TOPIC = ">";
     static public final String PROPERTY_ACTIVEMQ_TOPIC = "io.nats.connector.plugins.activemq.topic";
 
+    /**
+     * Default pre/post NATS conversion identifier
+     */
+    static public final String DEFAULT_NATS_TOPIC_PRE = "";
+    static public final String PROPERTY_NATS_TOPIC_PRE = "io.nats.connector.plugins.activemq.nats.topic.pre";
+    static public final String DEFAULT_NATS_TOPIC_POST = "";
+    static public final String PROPERTY_NATS_TOPIC_POST = "io.nats.connector.plugins.activemq.nats.topic.post";
+
 
     NATSConnector connector = null;
     Logger logger = null;
@@ -96,13 +107,34 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
     String password = DEFAULT_ACTIVEMQ_PASSWORD;
     int timeout = DEFAULT_ACTIVEMQ_TIMEOUT;
     String topic = DEFAULT_ACTIVEMQ_TOPIC;
+    String natsTopicPre = DEFAULT_NATS_TOPIC_PRE;
+    String natsTopicPost = DEFAULT_NATS_TOPIC_POST;
+
+    /**
+     * Update environment variables in properties files.
+     * 
+     * @return properties object
+     */
+    private void updateEnvironmentProperties(Properties props)
+    {
+        StringSubstitutor interpolator = StringSubstitutor.createInterpolator();
+        interpolator.setEnableSubstitutionInVariables(true); // Allows for nested $'s.
+        Set<String> keys = props.stringPropertyNames();
+        for (String key : keys) {
+            if(key.startsWith("io.nats")) {
+                logger.debug(interpolator.replace(props.getProperty(key)));
+                props.setProperty(key, interpolator.replace(props.getProperty(key)));
+            }
+        }
+    }
 
     /**
      * Get the configuration URL from the properties (if set)
      */
     private void loadProperties() throws Exception
     {
-        Properties p = new Properties(System.getProperties());
+        Properties p = (Properties) System.getProperties().clone();
+
         String configFile = p.getProperty(PROPERTY_FILE);
 
         if (configFile == null)
@@ -121,6 +153,8 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             in.close();
         }
 
+        updateEnvironmentProperties(p);
+
         uri = p.getProperty(
             PROPERTY_ACTIVEMQ_URI, DEFAULT_ACTIVEMQ_URI);
         username = p.getProperty(
@@ -131,8 +165,25 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
             PROPERTY_ACTIVEMQ_TIMEOUT, String.valueOf(DEFAULT_ACTIVEMQ_TIMEOUT)));
         topic = p.getProperty(
             PROPERTY_ACTIVEMQ_TOPIC, DEFAULT_ACTIVEMQ_TOPIC);
+        natsTopicPre = p.getProperty(
+            PROPERTY_NATS_TOPIC_PRE, DEFAULT_NATS_TOPIC_PRE);
+        natsTopicPost = p.getProperty(
+            PROPERTY_NATS_TOPIC_POST, DEFAULT_NATS_TOPIC_POST);
+
+        traceProperties();
     }
 
+
+    private void traceProperties() {
+        logger.trace("ActiveMQ plugin properties:");
+        logger.trace("  uri: " + uri);
+        logger.trace("  username: " + username);
+        logger.trace("  password: " + password);
+        logger.trace("  timeout: " + timeout);
+        logger.trace("  topic: " + topic);
+        logger.trace("  natsTopicPre: " + natsTopicPre);
+        logger.trace("  natsTopicPost: " + natsTopicPost);
+    }
 
     /**
      * ActiveMQ listener
@@ -165,9 +216,14 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
          * @param topic
          * @return parse topic
          */
-        private String parseTopic(String topic)
+        private String topicToNatsTopic(String topic)
         {
-            return topic.split("//", 2)[1];
+            String natsTopic = topic.split("//", 2)[1];
+            if(natsTopicPre.length() != 0)
+                natsTopic = natsTopicPre + "." + natsTopic;
+            if(natsTopicPost.length() != 0)
+                natsTopic += "." + natsTopicPost;
+            return natsTopic;
         }
 
 
@@ -187,7 +243,7 @@ public class ActiveMQPlugin implements NATSConnectorPlugin
                     } else if (message instanceof TextMessage) {
                         TextMessage textMessage = (TextMessage) message;
                         String amqTopic = textMessage.getJMSDestination().toString();
-                        String natsTopic = parseTopic(amqTopic);
+                        String natsTopic = topicToNatsTopic(amqTopic);
                         String content = textMessage.getText();
                         logger.debug(
                             "Send ActiveMQ ({}) -> NATS ({}):\n{}",
